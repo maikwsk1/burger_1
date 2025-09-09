@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>料理ゲーム</title>
+    <style>
+        body {
+            margin: 40px;
+        }
+
+        .grid {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(9, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 10px;
+            width: max-content;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 2px solid #ccc;
+        }
+
+        .box {
+            width: 60px;
+            height: 60px;
+            background-color: #f2c94c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            border-radius: 8px;
+        }
+
+        .box.plate {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+
+        .spacer {
+            width: 60px;
+            height: 60px;
+            background-color: transparent;
+        }
+
+        .player {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #e5e112;
+            border-radius: 50%;
+            transition: top 0.1s, left 0.1s;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        #grid {
+            position: relative;
+        }
+
+        .bubble {
+            position: absolute;
+            padding: 4px 8px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 30;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .bubble::after {
+            content: "";
+            position: absolute;
+            bottom: -6px;
+            left: 10px;
+            border: 6px solid transparent;
+            border-top-color: white;
+        }
+
+        .emoji {
+            font-size: 32px;
+            text-align: center;
+            line-height: 70px;
+            position: relative;
+            display: inline-block;
+            z-index: 10;
+        }
+
+        .cut-mark {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 34px;
+            opacity: 0.8;
+            pointer-events: none;
+            z-index: 20;
+            color: white;
+        }
+
+        .cooked {
+            filter: brightness(0.6) sepia(1) hue-rotate(-20deg) saturate(2);
+        }
+
+        .box.ingredient {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background-color: transparent;
+            z-index: 10;
+        }
+
+        .box {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            text-align: center;
+            font-size: 32px;
+            line-height: 70px;
+            z-index: 5;
+        }
+
+        .station {
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .orders {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .order {
+            padding: 6px 12px;
+            background: #fff8dc;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .order {
+            padding: 6px 12px;
+            background: #fff8dc;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 24px;
+            position: relative;
+        }
+
+        .timer {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 1000px) {
+            .grid {
+                transform: scale(0.8);
+                transform-origin: top center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <body>
+        <div class="container-fluid">
+            <div class="row">
+                <!-- 左側：注文・スコア・タイマー -->
+                <div class="col-md-4">
+                    <div class="orders d-flex flex-wrap gap-2 mb-3">
+                        {% for order in orders %}
+                        <div class="order" data-created="{{ order.created }}" data-limit="{{ order.time_limit }}">
+                            {% for emoji in order.emojis %}
+                            {{ emoji }}
+                            {% endfor %}
+                            <span class="timer">⏱️あと <span class="seconds">--</span> 秒</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>スコア: <span class="badge bg-success">{{ score }}</span></h5>
+                        <h6>残り時間: <span id="timer" class="badge bg-warning text-dark">{{ time }}</span> 秒</h6>
+                        <button id="pauseBtn" class="btn btn-outline-secondary mt-2">⏸ 一時停止</button>
+                    </div>
+
+                    <div id="status" class="mb-2">持ち物: なし</div>
+                    <div id="result" class="alert alert-info fw-bold"></div>
+                    <button id="restartBtn">再スタート</button>
+                    <div id="score">0</div>
+                    <div id="status"></div>
+                </div>
+
+                <!-- 右側：グリッド -->
+                <div class="col-md-8 d-flex justify-content-center">
+                    <div id="grid" class="grid">
+                        <div class="player" id="player">
+                            <div id="carriedItem"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </body>
+
+
+    <script>
+
+        setInterval(() => {
+            location.reload();
+        }, 5000); // 20秒ごとにページを再読み込み
+
+        function updateTimers() {
+            const now = new Date();
+            document.querySelectorAll(".order").forEach(orderEl => {
+                const createdStr = orderEl.dataset.created;
+                const limit = parseInt(orderEl.dataset.limit);
+                const createdTime = new Date(createdStr);
+                const elapsed = Math.floor((now - createdTime) / 1000);
+                const remaining = Math.max(0, limit - elapsed);
+
+                const secondsEl = orderEl.querySelector(".seconds");
+                if (secondsEl) secondsEl.textContent = remaining;
+
+                // ⏱️ 時間切れなら非表示にする
+                if (remaining <= 0) {
+                    orderEl.remove(); // DOMから消す
+                }
+            });
+        }
+
+        setInterval(updateTimers, 1000);
+        updateTimers(); // 初回実行
+
+        // タイマー設定
+        const remainingTime = Number("{{ time }}");
+        const timerEl = document.getElementById("timer");
+        const pauseBtn = document.getElementById("pauseBtn");
+
+        // 残り時間と一時停止フラグ
+        let timeLeft = remainingTime;
+        let isPaused = false;
+
+        // 1秒ごとにカウントダウン
+        const countdown = setInterval(() => {
+            if (!isPaused) {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    window.location.href = "/result";
+                }
+            }
+        }, 1000);
+
+        // 一時停止ボタンの動作
+        pauseBtn.addEventListener("click", () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? "▶️ 再開" : "⏸ 一時停止";
+        });
+
+
+        // === プレイヤー設定 ===
+        const player = document.getElementById("player");
+        const statusEl = document.getElementById("status");// 持ち物表示
+        let x = null;
+        let y = null;
+        let speed = 1;
+        let carrying = null;
+        const cellSize = 70;
+
+        // === ステーション & アイテム ===
+        const fridgeItems = [
+            { x: 0, y: 0, emoji: "🥩", state: "raw" },
+            { x: 2, y: 0, emoji: "🥬", state: "raw" },
+            { x: 3, y: 0, emoji: "🍅", state: "raw" },
+            { x: 4, y: 0, emoji: "🫓", state: "plain" }
+        ];
+        const knifeStation = { x: 4, y: 2, emoji: "🔪" };
+        const fireStation = { x: 5, y: 2, emoji: "🔥" };
+        const dish = { x: 6, y: 0, emoji: "🍽️" };
+        const serveStation = { x: 8, y: 4, emoji: "🧾" };
+
+        // === フィールド状態 ===
+        let fieldItems = JSON.parse('{{ field_items | tojson | safe }}');
+        fieldItems.forEach(createPlacedIngredient);
+
+        // === レシピ ===
+        const BURGER_RECIPES = {
+            "ハンバーガー": ["🫓", "🥩:cooked", "🥬:cut"],
+            "ベジバーガー": ["🫓", "🥬:cut", "🍅:cut"],
+            "ミートサンド": ["🫓", "🥩:cooked"]
+        };
+
+        // === 共通ユーティリティ ===
+        const safeNum = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+        const normalizeIngredient = item =>
+            item.emoji === "🫓" ? "🫓" : `${item.emoji}:${item.state ?? "raw"}`;
+        document.getElementById("restartBtn").addEventListener("click", () => {
+            fetch("/reset", { method: "POST" })
+                .then(res => {
+                    // Flask が redirect を返した場合、location.href をホームに飛ばす
+                    if (res.redirected) {
+                        window.location.href = res.url;
+                    }
+                });
+        });
+
+
+        // === サーバー通信 ===
+        function savePlayerState() {
+            fetch("/save_state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    x: safeNum(x),
+                    y: safeNum(y),
+                    carrying: carrying ?? null
+                }),
+                credentials: "include"
+            });
+        }
+
+        function loadPlayerState() {
+            fetch("/load_state", { credentials: "include" })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("サーバーから受け取った位置:", data);
+                    x = safeNum(data.x);
+                    y = safeNum(data.y);
+                    carrying = data.carrying ?? null;
+                    updatePosition();
+                    updateStatus();
+                });
+        }
+
+        // === アイテム管理関数 ===
+        function addItemToField(item) {
+            fieldItems.push(item);
+            createPlacedIngredient(item);
+            scheduleFieldUpdate();
+        }
+
+        function removeItemFromField(item) {
+            const idx = fieldItems.indexOf(item);
+            if (idx >= 0) fieldItems.splice(idx, 1);
+            document.querySelectorAll(`.box[data-x="${item.x}"][data-y="${item.y}"]:not(.station):not(.fridge)`)
+                .forEach(b => b.remove());
+            scheduleFieldUpdate();
+        }
+
+        // === UI生成 ===
+        function createEmojiElement({ emoji, state }) {
+            const el = document.createElement("div");
+            el.textContent = emoji;
+            el.className = "emoji";
+            if (state === "cut") {
+                const overlay = document.createElement("div");
+                overlay.className = "cut-mark";
+                overlay.textContent = "✔";
+                el.appendChild(overlay);
+            }
+            if (state === "cooked" && emoji === "🥩") el.classList.add("cooked");
+            return el;
+        }
+
+        function createBox({ x, y, emoji, backgroundColor, className }) {
+            const box = document.createElement("div");
+            box.className = `box ${className}`;
+            Object.assign(box.dataset, { x, y });
+            box.textContent = emoji;
+            Object.assign(box.style, {
+                left: `${x * cellSize}px`,
+                top: `${y * cellSize}px`,
+                backgroundColor
+            });
+            return box;
+        }
+
+        function createPlacedIngredient(item) {
+            const box = createBox({ ...item, className: "ingredient" });
+            box.innerHTML = "";
+            box.appendChild(createEmojiElement(item));
+            document.getElementById("grid").appendChild(box);
+            if (item.emoji === "🍔") createBurgerBubble(item);
+        }
+
+        function drawFixedStations() {
+            const grid = document.getElementById("grid");
+            fridgeItems.forEach(i => grid.appendChild(createBox({ ...i, backgroundColor: "orange", className: "fridge" })));
+            grid.appendChild(createBox({ ...knifeStation, backgroundColor: "lightblue", className: "station" }));
+            grid.appendChild(createBox({ ...fireStation, backgroundColor: "red", className: "station" }));
+
+            const dishBox = createBox({ ...dish, backgroundColor: "#f5f5f5", className: "station plate" });
+            dishBox.style.fontSize = "40px";
+            grid.appendChild(dishBox);
+
+            grid.appendChild(createBox({ ...serveStation, backgroundColor: "lightgreen", className: "station serve" }));
+        }
+
+        // === ゲームロジック ===
+        function getItemsOnPlate() {
+            return fieldItems.filter(i => i.x === dish.x && i.y === dish.y);
+        }
+
+        function checkPlateForBurger() {
+            const items = getItemsOnPlate();
+            if (
+                fieldItems.some(i => i.x === dish.x && i.y === dish.y && i.emoji === "🍔") ||
+                !items.some(i => i.emoji === "🫓") ||
+                !items.some(i => i.emoji !== "🫓" && ["cut", "cooked"].includes(i.state))
+            ) return;
+
+            items.forEach(i => removeItemFromField(i));
+
+            const burger = {
+                x: dish.x, y: dish.y, emoji: "🍔", state: null,
+                ingredients: items.map(i => ({ emoji: i.emoji, state: i.state }))
+            };
+            addItemToField(burger);
+            createBurgerBubble(burger);
+        }
+
+        function checkPlateRecipe() {
+            const resultEl = document.getElementById("result");
+            const items = getItemsOnPlate();
+            const itemKeys = items.map(normalizeIngredient).sort();
+
+            for (const [name, recipe] of Object.entries(BURGER_RECIPES)) {
+                if (JSON.stringify(itemKeys) === JSON.stringify([...recipe].sort())) {
+                    resultEl.textContent = `🍔 完成: ${name}！`;
+                    return;
+                }
+            }
+            const display = items.map(i => `${i.emoji}（${i.state}）`).join(", ");
+            resultEl.textContent = `お皿の上: ${display}`;
+            const burger = items.find(i => i.emoji === "🍔");
+            if (burger?.ingredients?.length) {
+                resultEl.textContent += `\n🍔の中身: ${burger.ingredients.map(i => `${i.emoji}（${i.state}）`).join(", ")}`;
+            }
+        }
+
+        function updatePosition() {
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                console.warn("位置未定義のため描画スキップ:", x, y);
+                return;
+            }
+            player.style.left = `${x * cellSize}px`;
+            player.style.top = `${y * cellSize}px`;
+            savePlayerState();
+        }
+
+        function updateStatus() {
+            statusEl.textContent = carrying
+                ? `持ち物: ${carrying.emoji}（${carrying.state}）`
+                : "持ち物: なし";
+
+            const carriedItemEl = document.getElementById("carriedItem");
+            carriedItemEl.innerHTML = "";
+            if (carrying) carriedItemEl.appendChild(createEmojiElement(carrying));
+        }
+
+        // === バーガー吹き出し ===
+        function createBurgerBubble(burger) {
+            const bubble = document.createElement("div");
+            bubble.className = "bubble";
+            bubble.textContent = burger.ingredients?.map(i => `${i.emoji}（${i.state}）`).join(", ") || "中身なし";
+            document.getElementById("grid").appendChild(bubble);
+            burger.bubbleEl = bubble;
+            updateBurgerBubblePosition(burger);
+        }
+
+        function updateBurgerBubblePosition(burger) {
+            if (!burger.bubbleEl) return;
+            burger.bubbleEl.style.left = `${burger.x * cellSize}px`;
+            burger.bubbleEl.style.top = `${burger.y * cellSize - 30}px`;
+        }
+
+        // === キー操作 ===
+        document.addEventListener("keydown", (e) => {
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+                e.preventDefault();
+            }
+            if (e.key === "s") speed = 2;
+
+            const maxX = 8;
+            const maxY = 4;
+
+            if (e.key === "ArrowRight" && x < maxX) x += speed;
+            if (e.key === "ArrowLeft" && x > 0) x -= speed;
+            if (e.key === "ArrowDown" && y < maxY) y += speed;
+            if (e.key === "ArrowUp" && y > 0) y -= speed;
+            updatePosition();
+
+            if (e.key === "d") {
+                const fridgeItem = fridgeItems.find(item => item.x === x && item.y === y);
+                const itemsAtPosition = fieldItems.filter(item => item.x === x && item.y === y);
+
+                if (!carrying) {
+                    const topItem = itemsAtPosition.at(-1);
+                    if (topItem) {
+                        carrying = topItem;
+                        removeItemFromField(topItem);
+                    } else if (fridgeItem) {
+                        carrying = { ...fridgeItem };
+                    }
+                    updateStatus();
+                    return;
+                }
+
+                // 🍔 提供
+                if (carrying && carrying.emoji === "🍔" && x === serveStation.x && y === serveStation.y) {
+                    const ingredients = carrying.ingredients.map(i => `${i.emoji}:${i.state}`);
+                    fetch("/serve", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ingredients })
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            const resultEl = document.getElementById("result");
+                            resultEl.textContent = data.result + `（現在のスコア: ${data.score}）`;
+                        });
+
+                    // 🔹 バーガーを削除
+                    removeItemFromField(carrying);
+
+                    if (carrying.bubbleEl) carrying.bubbleEl.remove();
+                    carrying = null;
+                    updateStatus();
+                    return;
+                }
+
+                if (carrying.emoji === "🍔") {
+                    carrying.x = x;
+                    carrying.y = y;
+                    addItemToField(carrying);
+                    updateBurgerBubblePosition(carrying);
+                    carrying = null;
+                    updateStatus();
+                    return;
+                }
+
+                const placed = { x, y, emoji: carrying.emoji, state: carrying.state };
+                const burgerOnPlate = fieldItems.find(
+                    i => i.x === dish.x && i.y === dish.y && i.emoji === "🍔"
+                );
+
+                if (x === dish.x && y === dish.y && burgerOnPlate) {
+                    burgerOnPlate.ingredients = burgerOnPlate.ingredients || [];
+                    burgerOnPlate.ingredients.push({ emoji: placed.emoji, state: placed.state });
+                    document.querySelectorAll(".bubble").forEach(b => b.remove());
+                    createBurgerBubble(burgerOnPlate);
+                    carrying = null;
+                    updateStatus();
+                    checkPlateRecipe();
+                    scheduleFieldUpdate();
+                    return;
+                }
+
+                addItemToField(placed);
+                carrying = null;
+                updateStatus();
+
+                if (x === dish.x && y === dish.y) {
+                    setTimeout(() => {
+                        checkPlateForBurger();
+                        checkPlateRecipe();
+                    }, 0);
+                }
+            }
+
+            // 🔪 切る
+            if (e.key === "w") {
+                const onKnife = x === knifeStation.x && y === knifeStation.y;
+                if (onKnife) {
+                    const itemsAtKnife = fieldItems.filter(item => item.x === x && item.y === y);
+                    const topItem = itemsAtKnife[itemsAtKnife.length - 1];
+                    if (topItem && ["🥩", "🥬", "🍅"].includes(topItem.emoji) && topItem.state === "raw") {
+                        topItem.state = "cut";
+                        removeItemFromField(topItem);
+                        addItemToField(topItem);
+                        updateStatus();
+                    }
+                }
+            }
+
+            // 🔥 焼く
+            if (e.key === "f") {
+                const onFire = x === fireStation.x && y === fireStation.y;
+                if (onFire) {
+                    const itemsAtFire = fieldItems.filter(item => item.x === x && item.y === y);
+                    const topItem = itemsAtFire[itemsAtFire.length - 1];
+                    if (topItem && topItem.emoji === "🥩" && topItem.state === "cut") {
+                        topItem.state = "cooked";
+                        removeItemFromField(topItem);
+                        addItemToField(topItem);
+                        updateStatus();
+                        checkPlateRecipe();
+                    }
+                }
+            }
+        });
+
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "s") speed = 1;
+        });
+
+        // === サーバー更新をまとめて行う ===
+        let updateTimer = null;
+        function scheduleFieldUpdate() {
+            if (updateTimer) clearTimeout(updateTimer);
+            updateTimer = setTimeout(() => {
+                fetch("/update_field", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fieldItems })
+                });
+                updateTimer = null;
+            }, 100);
+        }
+
+        // === 初期化 ===
+        window.addEventListener("DOMContentLoaded", () => {
+            loadPlayerState();
+            drawFixedStations();
+            updatePosition();
+            updateStatus();
+        });
+
+
+
+    </script>
+</body>
+
+</html>
