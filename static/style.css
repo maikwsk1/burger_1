@@ -1,0 +1,99 @@
+body {
+  font-family: sans-serif;
+  text-align: center;
+  margin-top: 30px;
+}
+
+#timer {
+  font-size: 48px;
+  margin: 20px;
+  color: #007bff;
+}
+
+button,
+input {
+  font-size: 18px;
+  margin: 6px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(9, 60px);
+  grid-template-rows: repeat(5, 60px);
+  gap: 2px;
+  margin: 20px auto;
+  width: fit-content;
+  position: relative;
+}
+
+.cell {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  border: 1px solid #ccc;
+  position: relative;
+}
+
+.player {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: gold;
+  position: absolute;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji {
+  position: absolute;
+  font-size: 32px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.checked::after {
+  content: "✔";
+  font-size: 20px;
+  color: green;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: white;
+  border-radius: 50%;
+}
+
+.cooked {
+  filter: brightness(0.6) sepia(1) hue-rotate(-20deg) saturate(4);
+}
+
+.burger-tooltip {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 2px 4px;
+  white-space: nowrap;
+  z-index: 70;
+}
+
+#orderContainer {
+  margin: 10px;
+  font-size: 20px;
+}
+
+.order {
+  margin: 4px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
